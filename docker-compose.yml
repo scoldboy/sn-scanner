@@ -1,0 +1,8 @@
+services:
+  sn-scanner:
+    build: .
+    container_name: sn-scanner
+    # 容器 443(HTTPS) -> 主机端口（按你 HA 上空闲端口改，如 8808）
+    ports:
+      - "8808:443"
+    restart: unless-stopped

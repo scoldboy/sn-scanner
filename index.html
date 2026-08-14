@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0C1410">
+<title>SN 扫码录入</title>
+<style>
+  :root{
+    --bg:#0C1410; --panel:#10201A; --panel2:#0E1A14;
+    --line:#1d3329; --signal:#3DE08B; --gold:#F4B740; --cyan:#2BD4D9;
+    --txt:#dfeee6; --txt2:#8aa79a; --red:#FF6B6B; --danger:#e85a5a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Sora","Manrope","PingFang SC","Microsoft YaHei",sans-serif;}
+  body{padding:env(safe-area-inset-top) 12px calc(84px + env(safe-area-inset-bottom)); max-width:560px; margin:0 auto;}
+  header{display:flex; align-items:center; justify-content:space-between; padding:14px 2px 10px;}
+  header h1{font-size:18px; margin:0; letter-spacing:.5px;}
+  header h1 .dot{display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--signal);
+    box-shadow:0 0 8px var(--signal); margin-right:8px; vertical-align:middle;}
+  .gear{background:var(--panel); border:1px solid var(--line); color:var(--txt2);
+    border-radius:10px; padding:8px 12px; font-size:13px;}
+  .chips{display:flex; gap:8px; overflow-x:auto; padding:4px 2px 10px; scrollbar-width:none;}
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{flex:0 0 auto; padding:9px 14px; border-radius:999px; background:var(--panel);
+    border:1px solid var(--line); color:var(--txt2); font-size:14px; font-weight:600;}
+  .chip.on{background:rgba(61,224,139,.14); border-color:var(--signal); color:var(--signal);}
+  .scan-btn{width:100%; padding:16px; border:none; border-radius:14px; font-size:17px; font-weight:700;
+    background:linear-gradient(135deg,#3DE08B,#2BD4D9); color:#06120c; margin:4px 0 12px;}
+  .scan-btn.stop{background:linear-gradient(135deg,#FF6B6B,#F0A23A); color:#1a0a0a;}
+  .manual{display:flex; gap:8px; margin-bottom:14px;}
+  .manual input{flex:1; padding:12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--txt); font-size:15px;}
+  .manual button{padding:0 16px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); color:var(--signal); font-weight:700;}
+  .list{display:flex; flex-direction:column; gap:12px;}
+  .group{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden;}
+  .group h3{margin:0; padding:10px 14px; font-size:14px; background:var(--panel2);
+    border-bottom:1px solid var(--line); display:flex; justify-content:space-between; color:var(--gold);}
+  .group h3 .cnt{color:var(--txt2); font-weight:500;}
+  .item{display:flex; align-items:center; justify-content:space-between; padding:11px 14px;
+    border-bottom:1px dashed var(--line); font-size:15px; word-break:break-all;}
+  .item:last-child{border-bottom:none;}
+  .item .sn{flex:1; margin-right:10px;}
+  .item .del{background:none; border:none; color:var(--danger); font-size:18px; padding:4px 8px;}
+  .empty{color:var(--txt2); text-align:center; padding:30px 0; font-size:14px;}
+  .foot{position:fixed; left:0; right:0; bottom:0; display:flex; gap:10px; padding:12px;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom)); background:rgba(12,20,16,.96);
+    backdrop-filter:blur(8px); border-top:1px solid var(--line); max-width:560px; margin:0 auto;}
+  .foot button{flex:1; padding:14px; border-radius:12px; font-size:15px; font-weight:700; border:none;}
+  .foot .exp{background:var(--signal); color:#06120c;}
+  .foot .clr{background:var(--panel); color:var(--danger); border:1px solid var(--line); flex:0 0 38%;}
+  #outWrap{margin-top:6px; display:none;}
+  #outText{width:100%; height:120px; background:var(--panel2); color:var(--txt);
+    border:1px solid var(--line); border-radius:10px; padding:10px; font-size:13px; font-family:monospace;}
+  /* scan overlay */
+  #scanPanel{position:fixed; inset:0; background:#000; z-index:50; display:none; flex-direction:column;}
+  #scanPanel.active{display:flex;}
+  #video{width:100%; flex:1; object-fit:cover; background:#000;}
+  #scanPanel .bar{display:flex; gap:10px; padding:14px; background:#0C1410;}
+  #scanPanel .bar button{flex:1; padding:14px; border-radius:12px; border:none; font-size:16px; font-weight:700;}
+  #scanPanel .bar .stop{background:var(--red); color:#fff;}
+  #scanPanel .hint{color:var(--txt2); text-align:center; padding:10px; font-size:13px; background:#0C1410;}
+  /* manage */
+  #manage{display:none; margin-bottom:14px; background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; padding:12px;}
+  #manage.on{display:block;}
+  #manage .row{display:flex; gap:8px; margin-bottom:10px;}
+  #manage input{flex:1; padding:10px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--txt);}
+  #manage .add{background:var(--signal); color:#06120c; border:none; border-radius:8px; padding:0 16px; font-weight:700;}
+  #manage .catline{display:flex; justify-content:space-between; align-items:center; padding:8px 4px;
+    border-bottom:1px dashed var(--line); font-size:14px;}
+  #manage .catline button{background:none; border:1px solid var(--danger); color:var(--danger);
+    border-radius:8px; padding:5px 10px; font-size:12px;}
+  #toast{position:fixed; left:50%; top:18%; transform:translateX(-50%); background:rgba(0,0,0,.85);
+    color:var(--signal); padding:10px 16px; border-radius:10px; font-size:14px; z-index:99;
+    opacity:0; transition:opacity .2s; pointer-events:none; max-width:80%; text-align:center;}
+  #toast.on{opacity:1;}
+</style>
+</head>
+<body>
+  <header>
+    <h1><span class="dot"></span>SN 扫码录入</h1>
+    <button class="gear" onclick="toggleManage()">⚙ 类别</button>
+  </header>
+
+  <div id="manage">
+    <div class="row">
+      <input id="newCat" placeholder="新类别名，如 风扇 / 其他">
+      <button class="add" onclick="addCategory()">添加</button>
+    </div>
+    <div id="catList"></div>
+  </div>
+
+  <div class="chips" id="chips"></div>
+
+  <button class="scan-btn" id="scanBtn" onclick="startScan()">📷 开始扫码</button>
+
+  <div class="manual">
+    <input id="manualSn" placeholder="或手动输入 SN（回车添加）" onkeydown="if(event.key==='Enter')manualAdd()">
+    <button onclick="manualAdd()">添加</button>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <div id="outWrap">
+    <textarea id="outText" readonly></textarea>
+  </div>
+
+  <div class="foot">
+    <button class="clr" onclick="clearAll()">清空</button>
+    <button class="exp" onclick="exportText()">导出并复制</button>
+  </div>
+
+  <div id="scanPanel">
+    <video id="video" playsinline muted></video>
+    <div class="hint">将配件上的二维码/条码对准取景框</div>
+    <div class="bar"><button class="stop" onclick="stopScan()">■ 停止扫码</button></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="zxing.min.js"></script>
+  <script>
+  (function(){
+    var STORE='sn_scans_v1', CAT='sn_categories_v1';
+    var DEF=['CPU','主板','散热','内存','显卡','硬盘','电源','机箱','风扇','其他'];
+    var categories = JSON.parse(localStorage.getItem(CAT) || 'null') || DEF.slice();
+    var scans = JSON.parse(localStorage.getItem(STORE) || '{}') || {};
+    var current = categories[0];
+    var reader=null, stream=null, scanning=false;
+
+    function save(){ localStorage.setItem(STORE, JSON.stringify(scans)); localStorage.setItem(CAT, JSON.stringify(categories)); }
+    function flash(msg){
+      var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
+      clearTimeout(flash._t); flash._t=setTimeout(function(){ t.classList.remove('on'); },1400);
+    }
+
+    function renderChips(){
+      var box=document.getElementById('chips'); box.innerHTML='';
+      categories.forEach(function(c){
+        var b=document.createElement('button');
+        b.className='chip'+(c===current?' on':'');
+        b.textContent=c; b.onclick=function(){ current=c; renderChips(); };
+        box.appendChild(b);
+      });
+    }
+    function renderList(){
+      var box=document.getElementById('list'); box.innerHTML='';
+      var any=false;
+      categories.forEach(function(cat){
+        var arr=scans[cat]||[];
+        if(!arr.length) return; any=true;
+        var g=document.createElement('div'); g.className='group';
+        var h=document.createElement('h3');
+        h.innerHTML='<span>'+escapeHtml(cat)+'</span><span class="cnt">'+arr.length+' 条</span>';
+        g.appendChild(h);
+        arr.forEach(function(sn,i){
+          var it=document.createElement('div'); it.className='item';
+          var s=document.createElement('span'); s.className='sn'; s.textContent=sn;
+          var d=document.createElement('button'); d.className='del'; d.textContent='×';
+          d.onclick=function(){ arr.splice(i,1); if(!arr.length) delete scans[cat]; save(); renderList(); flash('已删除'); };
+          it.appendChild(s); it.appendChild(d); g.appendChild(it);
+        });
+        box.appendChild(g);
+      });
+      if(!any) box.innerHTML='<div class="empty">还没有扫码记录<br>选好类别后点「开始扫码」</div>';
+    }
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+
+    function onDecode(text){
+      var arr=scans[current]||[];
+      if(arr.indexOf(text)>=0){ flash('「'+current+'」已有 '+text); return; }
+      arr.push(text); scans[current]=arr; save(); renderList();
+      flash('✓ '+current+'：'+text);
+    }
+
+    function startScan(){
+      if(scanning) return;
+      if(typeof ZXing==='undefined'){ alert('解码库未加载，请检查网络或刷新'); return; }
+      reader=new ZXing.BrowserMultiFormatReader();
+      var video=document.getElementById('video');
+      navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false})
+        .then(function(s){
+          stream=s; video.srcObject=s; return video.play();
+        })
+        .then(function(){
+          scanning=true;
+          document.getElementById('scanPanel').classList.add('active');
+          document.getElementById('scanBtn').textContent='扫码中…';
+          reader.decodeFromVideoElement(video, function(result, err){
+            if(result){
+              var text=(result.getText?result.getText():'').trim();
+              if(text) onDecode(text);
+            }
+          });
+        })
+        .catch(function(e){ alert('摄像头打开失败：'+(e&&e.message||e)); });
+    }
+    function stopScan(){
+      scanning=false;
+      if(reader){ try{ reader.reset(); }catch(e){} reader=null; }
+      if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
+      document.getElementById('video').srcObject=null;
+      document.getElementById('scanPanel').classList.remove('active');
+      document.getElementById('scanBtn').textContent='📷 开始扫码';
+    }
+
+    function manualAdd(){
+      var inp=document.getElementById('manualSn'); var v=inp.value.trim();
+      if(!v) return; inp.value=''; onDecode(v);
+    }
+
+    function buildText(){
+      var lines=['===SN-IMPORT:v1==='];
+      categories.forEach(function(cat){ (scans[cat]||[]).forEach(function(sn){ lines.push(cat+': '+sn); }); });
+      lines.push('===END===');
+      return lines.join('\n');
+    }
+    function exportText(){
+      var t=buildText();
+      document.getElementById('outText').value=t;
+      document.getElementById('outWrap').style.display='block';
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(t).then(function(){ flash('已复制到剪贴板，去配置单粘贴'); },
+          function(){ flash('复制失败，请长按文本框手动复制'); });
+      } else { flash('请长按文本框手动复制'); }
+    }
+    function clearAll(){
+      if(!confirm('清空所有已扫码记录？')) return;
+      scans={}; save(); renderList(); flash('已清空');
+    }
+
+    function toggleManage(){ document.getElementById('manage').classList.toggle('on'); renderCatList(); }
+    function addCategory(){
+      var inp=document.getElementById('newCat'); var v=inp.value.trim();
+      if(!v) return;
+      if(categories.indexOf(v)>=0){ flash('类别已存在'); return; }
+      categories.push(v); if(!current) current=v; inp.value=''; save(); renderChips(); renderCatList(); flash('已添加 '+v);
+    }
+    function renderCatList(){
+      var box=document.getElementById('catList'); box.innerHTML='';
+      categories.forEach(function(c){
+        var row=document.createElement('div'); row.className='catline';
+        var s=document.createElement('span'); s.textContent=c;
+        var b=document.createElement('button'); b.textContent='删除';
+        b.onclick=function(){
+          if(!confirm('删除类别「'+c+'」？该类别下的 SN 也会清除')) return;
+          categories=categories.filter(function(x){return x!==c;});
+          delete scans[c]; if(current===c) current=categories[0];
+          save(); renderChips(); renderCatList(); renderList();
+        };
+        row.appendChild(s); row.appendChild(b); box.appendChild(row);
+      });
+    }
+
+    // init
+    renderChips(); renderList();
+    window.startScan=startScan; window.stopScan=stopScan; window.manualAdd=manualAdd;
+    window.exportText=exportText; window.clearAll=clearAll; window.toggleManage=toggleManage;
+    window.addCategory=addCategory;
+  })();
+  </script>
+</body>
+</html>
