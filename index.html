@@ -95,7 +95,9 @@
 
   <div class="chips" id="chips"></div>
 
-  <button class="scan-btn" id="scanBtn" onclick="startScan()">📷 开始扫码</button>
+  <button class="scan-btn" id="scanBtn" onclick="startScan()">📷 开始扫码（需 HTTPS）</button>
+  <button class="scan-btn" id="picBtn" onclick="document.getElementById('picInput').click()" style="background:linear-gradient(135deg,#F4B740,#F0A23A); color:#1a1206;">🖼 从相册选图识别</button>
+  <input type="file" id="picInput" accept="image/*" style="display:none" onchange="decodeImage(this)">
 
   <div class="manual">
     <input id="manualSn" placeholder="或手动输入 SN（回车添加）" onkeydown="if(event.key==='Enter')manualAdd()">
@@ -212,6 +214,30 @@
       if(!v) return; inp.value=''; onDecode(v);
     }
 
+    // 从相册/拍照图片识别（不依赖摄像头，file:// 直接打开也能用）
+    function decodeImage(input){
+      var file=input.files && input.files[0];
+      input.value='';
+      if(!file) return;
+      if(typeof ZXing==='undefined'){ alert('解码库未加载，请刷新页面'); return; }
+      flash('识别中…');
+      var url=URL.createObjectURL(file);
+      var img=new Image();
+      img.onload=function(){
+        var r=new ZXing.BrowserMultiFormatReader();
+        r.decodeFromImage(img).then(function(result){
+          var text=(result && result.getText?result.getText():'').trim();
+          if(text) onDecode(text); else flash('未识别到条码，换角度重拍');
+          URL.revokeObjectURL(url);
+        }).catch(function(){
+          flash('未识别到条码，换角度重拍');
+          URL.revokeObjectURL(url);
+        });
+      };
+      img.onerror=function(){ flash('图片读取失败'); URL.revokeObjectURL(url); };
+      img.src=url;
+    }
+
     function buildText(){
       var lines=['===SN-IMPORT:v1==='];
       categories.forEach(function(cat){ (scans[cat]||[]).forEach(function(sn){ lines.push(cat+': '+sn); }); });
@@ -258,6 +284,7 @@
     // init
     renderChips(); renderList();
     window.startScan=startScan; window.stopScan=stopScan; window.manualAdd=manualAdd;
+    window.decodeImage=decodeImage;
     window.exportText=exportText; window.clearAll=clearAll; window.toggleManage=toggleManage;
     window.addCategory=addCategory;
   })();
